@@ -1,42 +1,41 @@
 # Weekly Metals Report
 
-Coleta automatizada de dados de metais (Au, Ag, Cu, Fe, Al, Ni, Zn, Pb, Sn, etc.) via APIs, web scraping e bases de dados para geração de relatório semanal.
+Coleta automatizada de preços e indicadores para relatório semanal de metais.
 
 ## Estrutura
 
 ```
 WEEKLY_METALS_REPORT/
-├── collectors/        # Scripts de coleta por fonte
-│   ├── apis/          # Integrações com APIs (Alpha Vantage, LME, etc.)
-│   ├── scrapers/      # Web scraping
-│   └── databases/     # Consultas a bases de dados externas
-├── processors/        # Transformação e limpeza dos dados
-├── reports/
-│   ├── templates/     # Templates Jinja2 (HTML/PDF)
-│   └── generated/     # Relatórios gerados (gitignored)
-├── data/
-│   ├── raw/           # Dados brutos (gitignored)
-│   ├── processed/     # Dados tratados
-│   └── samples/       # Amostras de referência (versionadas)
-├── logs/              # Logs de execução (gitignored)
-├── .env.example       # Variáveis de ambiente (template público)
+├── collectors/
+│   ├── lme.py          Cobre & Alumínio LME — histórico (Westmetall)
+│   ├── comex.py        Cobre & Alumínio COMEX — histórico (Stooq)
+│   ├── shfe.py         Aço HRC SHFE — histórico (akshare)
+│   ├── energy_pvc.py   Brent (Stooq) + PVC DCE (akshare)
+│   ├── iron_ore.py     Minério de Ferro 62% Fe DCE (akshare)
+│   ├── tradingview.py  Curvas futuras LME/SHFE (TradingView API)
+│   ├── fx_rates.py     PTAX, EUR/USD, CNY/USD, DXY, US10Y, DI Fut (BCB + Stooq)
+│   └── cftc.py         CFTC Managed Money (Nasdaq Data Link)
+├── data/               Outputs locais — gitignored
+├── .env.example        Template de variáveis de ambiente
 ├── requirements.txt
-└── main.py            # Entrypoint semanal
+└── main.py
 ```
 
 ## Setup
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate          # Windows
+.venv\Scripts\activate
 pip install -r requirements.txt
 
-cp .env.example .env
-# editar .env com suas chaves
+copy .env.example .env
+# editar .env com NASDAQ_API_KEY
 ```
 
-## Execução
+## Executar coletor individual
 
 ```bash
-python main.py
+python -m collectors.lme
+python -m collectors.fx_rates
+# etc.
 ```
