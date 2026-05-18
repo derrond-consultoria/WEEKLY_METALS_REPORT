@@ -21,7 +21,7 @@ def fetch_hrc_main(start_date: str = START_DATE, end_date: str | None = None) ->
         end_date = datetime.today().strftime("%Y%m%d")
 
     print(f"Baixando HC0 (contrato principal) de {start_date} a {end_date}...")
-    df = ak.futures_main_sina(symbol="WR0", start_date=start_date, end_date=end_date)
+    df = ak.futures_main_sina(symbol="HC0", start_date=start_date, end_date=end_date)
 
     df = df.rename(columns={
         "日期": "date",

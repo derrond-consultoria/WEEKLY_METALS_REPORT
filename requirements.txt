@@ -7,8 +7,8 @@ numpy>=1.26.0
 openpyxl>=3.1.0
 lxml>=5.2.0               # pd.read_html (LME scraper)
 
-# Exchanges / APIs
-akshare>=1.12.0            # SHFE, DCE (HRC, PVC, iron ore)
+# Chinese exchanges (SHFE HRC, DCE PVC e minério de ferro)
+akshare>=1.12.0
 
 # Env
 python-dotenv>=1.0.0

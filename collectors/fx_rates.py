@@ -3,15 +3,18 @@ Câmbio e Juros — séries históricas diárias.
 
 Fontes:
   USD/BRL PTAX  → API Banco Central do Brasil (gratuita, sem chave)
-  CNY/USD       → Stooq (usdcny.fx invertido)
-  EUR/USD       → Stooq (eurusd.fx)
-  DXY           → Stooq (dxy.indx)
-  US Treasury 10Y → Stooq (10us.b)
-  DI Fut Jan/XX → B3 via stooq (di1f.b3) — vencimento mais próximo
+  EUR/USD        → ECB Statistical Data Warehouse (gratuita, sem chave)
+  CNY/USD        → FRED `DEXCHUS`  (CNY por 1 USD)
+  DXY            → FRED `DTWEXBGS` (Nominal Broad USD Index — proxy do DXY ICE)
+  US Treasury 10Y→ FRED `DGS10`
+  DI Fut Jan/XX  → TODO: B3/ANBIMA (sem API pública estável disponível)
+
+FRED requer chave gratuita: https://fred.stlouisfed.org/docs/api/api_key.html
 """
 
+import os
 import sys
-from io import StringIO
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -21,61 +24,23 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 OUTPUT_FILE = Path(__file__).parent.parent / "data" / "fx_rates.xlsx"
 
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-    )
+FRED_SERIES = {
+    "CNY_USD": "DEXCHUS",    # Chinese Yuan per 1 USD (quanto CNY vale 1 USD)
+    "DXY":     "DTWEXBGS",   # Nominal Broad U.S. Dollar Index (Fed) ≈ DXY ICE
+    "US10Y":   "DGS10",      # 10-Year Treasury Constant Maturity Rate (% a.a.)
 }
-
-# Stooq tickers
-STOOQ_TICKERS = {
-    "USD_CNY":    "usdcny.fx",   # USD por CNY (inverte para CNY/USD)
-    "EUR_USD":    "eurusd.fx",
-    "DXY":        "dxy.indx",
-    "US10Y":      "10us.b",
-    "DI_FUT":     "di1f.b3",     # DI Futuro jan vencimento mais próximo (B3)
-}
-
-
-# ── Stooq ─────────────────────────────────────────────────────────────────────
-
-def fetch_stooq(symbol: str) -> pd.DataFrame | None:
-    url = f"https://stooq.com/q/d/l/?s={symbol}&i=d"
-    try:
-        r = requests.get(url, headers=HEADERS, timeout=30)
-        r.raise_for_status()
-    except Exception as e:
-        print(f"  erro HTTP ({symbol}): {e}")
-        return None
-
-    text = r.text.strip()
-    if not text or text.lower().startswith("no data"):
-        print(f"  sem dados Stooq para {symbol}")
-        return None
-
-    df = pd.read_csv(StringIO(text))
-    df.columns = [c.lower() for c in df.columns]
-    df["date"] = pd.to_datetime(df["date"])
-    return df.set_index("date").sort_index()
 
 
 # ── PTAX (Banco Central do Brasil) ────────────────────────────────────────────
 
 def fetch_ptax(start: str = "01-01-2010") -> pd.DataFrame | None:
-    """
-    Cotação de fechamento PTAX USD/BRL via API pública do BCB.
-    start: formato MM-DD-YYYY (padrão da API do BCB)
-    """
-    from datetime import datetime
     end = datetime.today().strftime("%m-%d-%Y")
-
     url = (
         "https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/"
         f"CotacaoDolarPeriodo(dataInicial=@di,dataFinalCotacao=@df)"
-        f"?@di='{start}'&@df='{end}'&$format=json&$select=cotacaoCompra,cotacaoVenda,dataHoraCotacao"
+        f"?@di='{start}'&@df='{end}'&$format=json"
+        "&$select=cotacaoCompra,cotacaoVenda,dataHoraCotacao"
     )
-
     try:
         r = requests.get(url, timeout=30)
         r.raise_for_status()
@@ -85,7 +50,6 @@ def fetch_ptax(start: str = "01-01-2010") -> pd.DataFrame | None:
         return None
 
     if not data:
-        print("  PTAX: sem dados retornados")
         return None
 
     df = pd.DataFrame(data)
@@ -99,26 +63,98 @@ def fetch_ptax(start: str = "01-01-2010") -> pd.DataFrame | None:
     return df.sort_index()
 
 
+# ── ECB (EUR/USD) ─────────────────────────────────────────────────────────────
+
+def fetch_ecb_eurusd(start: str = "2010-01-01") -> pd.DataFrame | None:
+    """EUR/USD via ECB Statistical Data Warehouse — sem chave de API."""
+    url = (
+        "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A"
+        f"?format=csvdata&startPeriod={start}"
+    )
+    try:
+        r = requests.get(url, timeout=30)
+        r.raise_for_status()
+    except Exception as e:
+        print(f"  erro ECB: {e}")
+        return None
+
+    from io import StringIO
+    df = pd.read_csv(StringIO(r.text))
+
+    # ECB CSV tem muitas colunas — só precisamos de DATE e OBS_VALUE
+    df.columns = [c.strip() for c in df.columns]
+    df = df[["TIME_PERIOD", "OBS_VALUE"]].rename(
+        columns={"TIME_PERIOD": "date", "OBS_VALUE": "close"}
+    )
+    df["date"]  = pd.to_datetime(df["date"])
+    df["close"] = pd.to_numeric(df["close"], errors="coerce")
+    return df.set_index("date").sort_index().dropna()
+
+
+# ── FRED ──────────────────────────────────────────────────────────────────────
+
+def fetch_fred(series_id: str, api_key: str, start: str = "2010-01-01") -> pd.DataFrame | None:
+    url = "https://api.stlouisfed.org/fred/series/observations"
+    params = {
+        "series_id":          series_id,
+        "api_key":            api_key,
+        "file_type":          "json",
+        "observation_start":  start,
+        "sort_order":         "asc",
+    }
+    try:
+        r = requests.get(url, params=params, timeout=30)
+        r.raise_for_status()
+        obs = r.json().get("observations", [])
+    except Exception as e:
+        print(f"  erro FRED ({series_id}): {e}")
+        return None
+
+    if not obs:
+        return None
+
+    df = pd.DataFrame(obs)[["date", "value"]]
+    df["date"]  = pd.to_datetime(df["date"])
+    df["value"] = pd.to_numeric(df["value"], errors="coerce")
+    df = df.rename(columns={"value": "close"})
+    return df.set_index("date").sort_index().dropna()
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    fred_key = os.getenv("FRED_API_KEY")
     sheets = {}
 
     print("=== PTAX USD/BRL (BCB) ===")
-    df_ptax = fetch_ptax()
-    if df_ptax is not None:
-        sheets["PTAX_USDBRL"] = df_ptax
-        print(f"  {df_ptax.index.min().date()} -> {df_ptax.index.max().date()}  "
-              f"último mid: {df_ptax['mid'].iloc[-1]:.4f}")
+    df = fetch_ptax()
+    if df is not None:
+        sheets["PTAX_USDBRL"] = df
+        print(f"  {df.index.min().date()} -> {df.index.max().date()}  "
+              f"último mid: {df['mid'].iloc[-1]:.4f}")
 
-    for name, symbol in STOOQ_TICKERS.items():
-        print(f"\n=== {name} ({symbol}) ===")
-        df = fetch_stooq(symbol)
-        if df is not None:
-            sheets[name] = df
-            print(f"  {df.index.min().date()} -> {df.index.max().date()}  "
-                  f"último close: {df['close'].iloc[-1]:.4f}")
+    print("\n=== EUR/USD (ECB) ===")
+    df = fetch_ecb_eurusd()
+    if df is not None:
+        sheets["EUR_USD"] = df
+        print(f"  {df.index.min().date()} -> {df.index.max().date()}  "
+              f"último: {df['close'].iloc[-1]:.4f}")
+
+    if not fred_key:
+        print("\nAVISO: FRED_API_KEY não configurada — CNY/USD, DXY e US10Y ignorados")
+        print("       Obtenha uma chave gratuita em: https://fred.stlouisfed.org/docs/api/api_key.html")
+    else:
+        for name, series in FRED_SERIES.items():
+            print(f"\n=== {name} (FRED: {series}) ===")
+            df = fetch_fred(series, fred_key)
+            if df is not None:
+                sheets[name] = df
+                print(f"  {df.index.min().date()} -> {df.index.max().date()}  "
+                      f"último: {df['close'].iloc[-1]:.4f}")
+
+    print("\n=== DI Fut Jan/XX (B3) ===")
+    print("  TODO: fonte não implementada (B3/ANBIMA sem API pública estável)")
 
     if not sheets:
         print("Nenhum dado coletado.")
@@ -126,9 +162,8 @@ def main():
 
     print(f"\nSalvando em {OUTPUT_FILE}...")
     with pd.ExcelWriter(OUTPUT_FILE, engine="openpyxl") as writer:
-        for sheet_name, df in sheets.items():
-            df.to_excel(writer, sheet_name=sheet_name[:31])
-
+        for name, df in sheets.items():
+            df.to_excel(writer, sheet_name=name[:31])
     print("Pronto.")
 
 
