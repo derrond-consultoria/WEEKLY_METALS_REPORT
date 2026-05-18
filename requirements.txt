@@ -1,0 +1,41 @@
+# ── HTTP / Web Scraping ────────────────────────────────────────────────────────
+requests>=2.31.0
+httpx>=0.27.0
+beautifulsoup4>=4.12.0
+lxml>=5.2.0
+selenium>=4.21.0
+playwright>=1.44.0
+scrapy>=2.11.0
+
+# ── Data ──────────────────────────────────────────────────────────────────────
+pandas>=2.2.0
+numpy>=1.26.0
+openpyxl>=3.1.0          # read/write .xlsx
+xlrd>=2.0.1               # read legacy .xls
+
+# ── APIs financeiras ──────────────────────────────────────────────────────────
+alpha-vantage>=2.3.1
+nasdaq-data-link>=1.0.4   # ex-Quandl
+yfinance>=0.2.40
+
+# ── Banco de Dados ─────────────────────────────────────────────────────────────
+psycopg2-binary>=2.9.9    # PostgreSQL
+sqlalchemy>=2.0.0
+
+# ── Relatório / Visualização ───────────────────────────────────────────────────
+jinja2>=3.1.0             # templates HTML/email
+matplotlib>=3.9.0
+plotly>=5.22.0
+weasyprint>=62.0          # HTML → PDF
+
+# ── Agendamento ───────────────────────────────────────────────────────────────
+schedule>=1.2.0
+APScheduler>=3.10.0
+
+# ── Notificações ──────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0
+
+# ── Utilitários ───────────────────────────────────────────────────────────────
+tenacity>=8.3.0           # retry logic
+loguru>=0.7.0             # logging
+tqdm>=4.66.0              # progress bars
