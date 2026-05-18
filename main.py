@@ -4,11 +4,10 @@ load_dotenv()
 
 
 def run():
-    from collectors import lme, comex, shfe, energy_pvc, iron_ore, fx_rates, tradingview, cftc
+    from collectors import lme, shfe, energy_pvc, iron_ore, fx_rates, tradingview, cftc
 
     print("=== Weekly Metals Report ===\n")
     lme.main()
-    comex.main()
     shfe.main()
     energy_pvc.main()
     iron_ore.main()

@@ -15,8 +15,9 @@ SHEET_NAME = "BD_FUTUROS"
 
 # Ativos relevantes para o relatório semanal
 ATIVOS = {
-    "LME":  ["CA", "AH"],        # Cobre, Alumínio
-    "SHFE": ["CU", "AL", "HC"],  # Cobre, Alumínio, HRC
+    "LME":        ["CA", "AH"],   # Cobre, Alumínio
+    "SHFE":       ["CU", "AL", "HC"],  # Cobre, Alumínio, HRC
+    "BMFBOVESPA": ["DI1"],        # DI Futuro (juros Brasil)
 }
 
 COLUMNS = ["DATA_REF", "ATIVO_ID", "EXCHANGE", "CONTRATO", "VENCIMENTO", "PRECO", "CURRENCY", "IS_SPOT"]
