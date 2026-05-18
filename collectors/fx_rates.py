@@ -7,7 +7,8 @@ Fontes:
   CNY/USD        → FRED `DEXCHUS`  (CNY por 1 USD)
   DXY            → FRED `DTWEXBGS` (Nominal Broad USD Index — proxy do DXY ICE)
   US Treasury 10Y→ FRED `DGS10`
-  DI Fut Jan/XX  → TODO: B3/ANBIMA (sem API pública estável disponível)
+
+  DI Futuro: curva do dia via collectors/tradingview.py (BMFBOVESPA:DI1)
 
 FRED requer chave gratuita: https://fred.stlouisfed.org/docs/api/api_key.html
 """
@@ -152,9 +153,6 @@ def main():
                 sheets[name] = df
                 print(f"  {df.index.min().date()} -> {df.index.max().date()}  "
                       f"último: {df['close'].iloc[-1]:.4f}")
-
-    print("\n=== DI Fut Jan/XX (B3) ===")
-    print("  TODO: fonte não implementada (B3/ANBIMA sem API pública estável)")
 
     if not sheets:
         print("Nenhum dado coletado.")

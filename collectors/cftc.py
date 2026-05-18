@@ -17,15 +17,8 @@ OUTPUT_DIR = Path(__file__).parent.parent / "data" / "cftc"
 
 CODES = {
     "COPPER":      "085692",
-    "SILVER":      "084691",
-    "GOLD":        "088691",
     "ALUMINIUM":   "191691",
-    "CORN":        "002602",
-    "SOYBEANS":    "005602",
-    "SOYBEAN_OIL": "007601",
-    "COTTON":      "033661",
-    "SUGAR":       "080732",
-    "COFFEE":      "083731",
+    "BRENT": "06765T",
 }
 
 
