@@ -44,16 +44,18 @@ def fetch_iron_ore(start_date: str = START_DATE, end_date: str | None = None) ->
     return df
 
 
+def collect() -> dict[str, pd.DataFrame]:
+    print("\n=== Minério de Ferro 62% Fe (I0) ===")
+    df = fetch_iron_ore()
+    print(f"  {df.index.min().date()} -> {df.index.max().date()}  "
+          f"último: {df['close'].iloc[-1]:.0f} CNY/ton")
+    return {"Preco_Minerio_Fe": df}
+
+
 def main():
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    df = fetch_iron_ore()
-
-    print(f"Primeira data:    {df.index.min().date()}")
-    print(f"Última data:      {df.index.max().date()}")
-    print(f"Total pregões:    {len(df)}")
-    print(f"Fechamento final: {df['close'].iloc[-1]:.0f} CNY/ton")
-
-    df.to_csv(OUTPUT_FILE, encoding="utf-8-sig")
+    sheets = collect()
+    sheets["Preco_Minerio_Fe"].to_csv(OUTPUT_FILE, encoding="utf-8-sig")
     print(f"\nSalvo em: {OUTPUT_FILE}")
 
 

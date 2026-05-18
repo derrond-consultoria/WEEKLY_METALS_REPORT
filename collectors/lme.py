@@ -92,33 +92,28 @@ def fetch_metal(name: str, field: str) -> pd.DataFrame:
     )
 
 
+SHEET_NAMES = {"Copper": "Preco_LME_Cu", "Aluminium": "Preco_LME_Al"}
+
+
+def collect() -> dict[str, pd.DataFrame]:
+    data = {}
+    for metal_name, field in FIELDS.items():
+        print(f"\n=== LME {metal_name} ===")
+        df = fetch_metal(metal_name, field)
+        if not df.empty:
+            print(f"  {df.index.min().date()} -> {df.index.max().date()}  ({len(df)} linhas)")
+            data[SHEET_NAMES[metal_name]] = df
+    return data
+
+
 def main():
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    all_data = {}
-
-    for metal_name, field in FIELDS.items():
-        print(f"\n=== {metal_name} ({field}) ===")
-        df = fetch_metal(metal_name, field)
-        all_data[metal_name] = df
-        if len(df):
-            print(f"  Total: {len(df)} linhas "
-                  f"({df.index.min().date()} -> {df.index.max().date()})")
-        else:
-            print("  Nenhum dado obtido.")
-
-    combined_parts = []
-    for metal_name, df in all_data.items():
-        combined_parts.append(
-            df.rename(columns={c: f"{metal_name}_{c}" for c in df.columns})
-        )
-    combined = pd.concat(combined_parts, axis=1).sort_index()
+    sheets = collect()
 
     print(f"\nSalvando em {OUTPUT_FILE}...")
     with pd.ExcelWriter(OUTPUT_FILE, engine="openpyxl") as writer:
-        for metal_name, df in all_data.items():
-            df.to_excel(writer, sheet_name=metal_name)
-        combined.to_excel(writer, sheet_name="Combined")
-
+        for sheet_name, df in sheets.items():
+            df.to_excel(writer, sheet_name=sheet_name)
     print(f"Pronto: {OUTPUT_FILE}")
 
 

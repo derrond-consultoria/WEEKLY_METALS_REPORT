@@ -1,26 +1,33 @@
 """
 Curva futura via TradingView scanner API.
-Atualiza base histórica em BD_FUTUROS.xlsx (formato long).
+Atualiza BD_FUTUROS.xlsx (formato long, acumulativo) e expõe
+snapshot do dia para o BD_SEMANAL via collect().
 """
 
-import os
 from datetime import datetime, date, timedelta
 from pathlib import Path
 
 import pandas as pd
 import requests
 
-BD_FUTUROS_PATH = Path(r"C:/Users/xanme/OneDrive/DERROND/FERRAMENTAS/BASES/BD_FUTUROS.xlsx")
+BD_FUTUROS_PATH = Path(__file__).parent.parent / "data" / "BD_FUTUROS.xlsx"
 SHEET_NAME = "BD_FUTUROS"
 
-# Ativos relevantes para o relatório semanal
 ATIVOS = {
-    "LME":        ["CA", "AH"],   # Cobre, Alumínio
+    "LME":        ["CA", "AH"],        # Cobre, Alumínio
     "SHFE":       ["CU", "AL", "HC"],  # Cobre, Alumínio, HRC
-    "BMFBOVESPA": ["DI1"],        # DI Futuro (juros Brasil)
+    "BMFBOVESPA": ["DI1"],             # DI Futuro (juros Brasil)
 }
 
 COLUMNS = ["DATA_REF", "ATIVO_ID", "EXCHANGE", "CONTRATO", "VENCIMENTO", "PRECO", "CURRENCY", "IS_SPOT"]
+
+# Mapeamento ATIVO_ID → nome da aba no BD_SEMANAL
+CURVE_SHEETS = {
+    "LME-CA":         "Curva_LME_Cu",
+    "LME-AH":         "Curva_LME_Al",
+    "SHFE-HC":        "Curva_SHFE_HRC",
+    "BMFBOVESPA-DI1": "Curva_DI1",
+}
 
 
 def get_futures(exchange: str, ticker: str) -> list:
@@ -69,14 +76,15 @@ def build_rows(exchange: str, ticker: str, data_ref: date, max_points: int = 36)
 def data_referencia() -> date:
     hoje = datetime.today()
     wd = hoje.weekday()
-    if wd == 0:   return (hoje - timedelta(days=3)).date()
+    if wd == 0:      return (hoje - timedelta(days=3)).date()
     if wd in (5, 6): return (hoje - timedelta(days=wd - 4)).date()
     return (hoje - timedelta(days=1)).date()
 
 
-def atualizar_bd_futuros(max_points: int = 36):
+def atualizar_bd_futuros(max_points: int = 36) -> pd.DataFrame:
+    """Coleta curvas do dia, persiste em BD_FUTUROS.xlsx e retorna o DataFrame completo."""
     data_ref = data_referencia()
-    print(f"Data de referência: {data_ref}")
+    print(f"\n=== Curvas Futuras (TradingView) — ref: {data_ref} ===")
 
     novas_linhas = []
     for exchange, tickers in ATIVOS.items():
@@ -87,21 +95,21 @@ def atualizar_bd_futuros(max_points: int = 36):
             novas_linhas.extend(linhas)
 
     if not novas_linhas:
-        print("Nenhuma linha nova.")
-        return
+        print("  Nenhuma linha nova.")
+        return pd.DataFrame(columns=COLUMNS)
 
     df_novo = pd.DataFrame(novas_linhas)[COLUMNS]
 
+    BD_FUTUROS_PATH.parent.mkdir(parents=True, exist_ok=True)
     if BD_FUTUROS_PATH.exists():
         try:
             df_existente = pd.read_excel(BD_FUTUROS_PATH, sheet_name=SHEET_NAME)
             df_existente["DATA_REF"]   = pd.to_datetime(df_existente["DATA_REF"]).dt.date
             df_existente["VENCIMENTO"] = pd.to_datetime(df_existente["VENCIMENTO"]).dt.date
         except Exception as e:
-            print(f"Aviso: base existente ilegível, recriando. ({e})")
+            print(f"  Aviso: base ilegível, recriando. ({e})")
             df_existente = pd.DataFrame(columns=COLUMNS)
     else:
-        BD_FUTUROS_PATH.parent.mkdir(parents=True, exist_ok=True)
         df_existente = pd.DataFrame(columns=COLUMNS)
 
     df_all = pd.concat([df_existente, df_novo], ignore_index=True)
@@ -113,7 +121,28 @@ def atualizar_bd_futuros(max_points: int = 36):
     with pd.ExcelWriter(BD_FUTUROS_PATH, engine="openpyxl", mode="w") as writer:
         df_all.to_excel(writer, sheet_name=SHEET_NAME, index=False)
 
-    print(f"BD_FUTUROS atualizado: {len(df_all)} linhas totais.")
+    print(f"  BD_FUTUROS: {len(df_all)} linhas totais.")
+    return df_all
+
+
+def collect() -> dict[str, pd.DataFrame]:
+    """Atualiza BD_FUTUROS e retorna snapshot do dia por instrumento."""
+    df_all = atualizar_bd_futuros()
+    if df_all.empty:
+        return {}
+
+    latest = df_all["DATA_REF"].max()
+    df_hoje = df_all[df_all["DATA_REF"] == latest].copy()
+
+    data = {}
+    for ativo_id, sheet_name in CURVE_SHEETS.items():
+        df = df_hoje[df_hoje["ATIVO_ID"] == ativo_id][
+            ["VENCIMENTO", "CONTRATO", "PRECO", "CURRENCY"]
+        ].reset_index(drop=True)
+        if not df.empty:
+            data[sheet_name] = df
+
+    return data
 
 
 if __name__ == "__main__":

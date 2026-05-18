@@ -44,15 +44,18 @@ def fetch_hrc_main(start_date: str = START_DATE, end_date: str | None = None) ->
     return df
 
 
+def collect() -> dict[str, pd.DataFrame]:
+    print("\n=== SHFE HRC (HC0) ===")
+    df = fetch_hrc_main()
+    print(f"  {df.index.min().date()} -> {df.index.max().date()}  "
+          f"último close: {df['close'].iloc[-1]:.0f} CNY/ton")
+    return {"Preco_SHFE_HRC": df}
+
+
 def main():
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    df = fetch_hrc_main()
-
-    print(f"\nPrimeira data:     {df.index.min().date()}")
-    print(f"Última data:       {df.index.max().date()}")
-    print(f"Total de pregões:  {len(df)}")
-    print(f"Fechamento final:  {df['close'].iloc[-1]:.0f} CNY/ton")
-
+    sheets = collect()
+    df = sheets["Preco_SHFE_HRC"]
     df.to_csv(OUTPUT_FILE, encoding="utf-8-sig")
     print(f"\nSalvo em: {OUTPUT_FILE}")
 

@@ -123,41 +123,51 @@ def fetch_fred(series_id: str, api_key: str, start: str = "2010-01-01") -> pd.Da
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main():
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    fred_key = os.getenv("FRED_API_KEY")
-    sheets = {}
+FRED_SHEET_NAMES = {
+    "CNY_USD": "FX_CNY_USD",
+    "DXY":     "FX_DXY",
+    "US10Y":   "Juros_US10Y",
+}
 
-    print("=== PTAX USD/BRL (BCB) ===")
+
+def collect() -> dict[str, pd.DataFrame]:
+    data = {}
+    fred_key = os.getenv("FRED_API_KEY")
+
+    print("\n=== PTAX USD/BRL (BCB) ===")
     df = fetch_ptax()
     if df is not None:
-        sheets["PTAX_USDBRL"] = df
         print(f"  {df.index.min().date()} -> {df.index.max().date()}  "
               f"último mid: {df['mid'].iloc[-1]:.4f}")
+        data["FX_PTAX"] = df
 
     print("\n=== EUR/USD (ECB) ===")
     df = fetch_ecb_eurusd()
     if df is not None:
-        sheets["EUR_USD"] = df
         print(f"  {df.index.min().date()} -> {df.index.max().date()}  "
               f"último: {df['close'].iloc[-1]:.4f}")
+        data["FX_EUR_USD"] = df
 
     if not fred_key:
         print("\nAVISO: FRED_API_KEY não configurada — CNY/USD, DXY e US10Y ignorados")
-        print("       Obtenha uma chave gratuita em: https://fred.stlouisfed.org/docs/api/api_key.html")
     else:
-        for name, series in FRED_SERIES.items():
-            print(f"\n=== {name} (FRED: {series}) ===")
+        for key, series in FRED_SERIES.items():
+            print(f"\n=== {key} (FRED: {series}) ===")
             df = fetch_fred(series, fred_key)
             if df is not None:
-                sheets[name] = df
                 print(f"  {df.index.min().date()} -> {df.index.max().date()}  "
                       f"último: {df['close'].iloc[-1]:.4f}")
+                data[FRED_SHEET_NAMES[key]] = df
 
+    return data
+
+
+def main():
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    sheets = collect()
     if not sheets:
         print("Nenhum dado coletado.")
         return
-
     print(f"\nSalvando em {OUTPUT_FILE}...")
     with pd.ExcelWriter(OUTPUT_FILE, engine="openpyxl") as writer:
         for name, df in sheets.items():

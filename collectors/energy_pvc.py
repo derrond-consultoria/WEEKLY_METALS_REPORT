@@ -82,35 +82,39 @@ def fetch_pvc_dce() -> pd.DataFrame | None:
     return df
 
 
-def main():
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    results = {}
+def collect() -> dict[str, pd.DataFrame]:
+    data = {}
 
-    print("=== Brent Crude (EIA) ===")
+    print("\n=== Brent Crude (EIA) ===")
     api_key = os.getenv("EIA_API_KEY")
     if not api_key:
         print("  AVISO: EIA_API_KEY não configurada — Brent ignorado")
     else:
-        df_brent = fetch_brent_eia(api_key)
-        if df_brent is not None:
-            results["Brent"] = df_brent
-            print(f"  {df_brent.index.min().date()} -> {df_brent.index.max().date()}  "
-                  f"último: {df_brent['close'].iloc[-1]:.2f} USD/bbl")
+        df = fetch_brent_eia(api_key)
+        if df is not None:
+            print(f"  {df.index.min().date()} -> {df.index.max().date()}  "
+                  f"último: {df['close'].iloc[-1]:.2f} USD/bbl")
+            data["Preco_Brent"] = df
 
     print("\n=== PVC DCE (V0) ===")
-    df_pvc = fetch_pvc_dce()
-    if df_pvc is not None:
-        results["PVC_DCE"] = df_pvc
-        print(f"  {df_pvc.index.min().date()} -> {df_pvc.index.max().date()}  "
-              f"último: {df_pvc['close'].iloc[-1]:.0f} CNY/ton")
+    df = fetch_pvc_dce()
+    if df is not None:
+        print(f"  {df.index.min().date()} -> {df.index.max().date()}  "
+              f"último: {df['close'].iloc[-1]:.0f} CNY/ton")
+        data["Preco_PVC_DCE"] = df
 
-    if not results:
+    return data
+
+
+def main():
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    sheets = collect()
+    if not sheets:
         print("Nenhum dado coletado.")
         return
-
     print(f"\nSalvando em {OUTPUT_FILE}...")
     with pd.ExcelWriter(OUTPUT_FILE, engine="openpyxl") as writer:
-        for name, df in results.items():
+        for name, df in sheets.items():
             df.to_excel(writer, sheet_name=name)
     print("Pronto.")
 
