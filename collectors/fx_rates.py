@@ -56,11 +56,10 @@ def fetch_ptax(start: str = "01-01-2010") -> pd.DataFrame | None:
     df = pd.DataFrame(data)
     df["date"] = pd.to_datetime(df["dataHoraCotacao"]).dt.normalize()
     df = (
-        df.groupby("date")[["cotacaoCompra", "cotacaoVenda"]]
+        df.groupby("date")[["cotacaoVenda"]]
           .last()
-          .rename(columns={"cotacaoCompra": "buy", "cotacaoVenda": "sell"})
+          .rename(columns={"cotacaoVenda": "sell"})
     )
-    df["mid"] = (df["buy"] + df["sell"]) / 2
     return df.sort_index()
 
 
@@ -138,7 +137,7 @@ def collect() -> dict[str, pd.DataFrame]:
     df = fetch_ptax()
     if df is not None:
         print(f"  {df.index.min().date()} -> {df.index.max().date()}  "
-              f"último mid: {df['mid'].iloc[-1]:.4f}")
+              f"último sell: {df['sell'].iloc[-1]:.4f}")
         data["FX_PTAX"] = df
 
     print("\n=== EUR/USD (ECB) ===")
