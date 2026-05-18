@@ -40,7 +40,7 @@ def fetch_ptax(start: str = "01-01-2010") -> pd.DataFrame | None:
         "https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/"
         f"CotacaoDolarPeriodo(dataInicial=@di,dataFinalCotacao=@df)"
         f"?@di='{start}'&@df='{end}'&$format=json"
-        "&$select=cotacaoCompra,cotacaoVenda,dataHoraCotacao"
+        "&$select=cotacaoVenda,dataHoraCotacao"
     )
     try:
         r = requests.get(url, timeout=30)
