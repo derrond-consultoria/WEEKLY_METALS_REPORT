@@ -17,6 +17,7 @@ ATIVOS = {
     "LME":        ["CA", "AH"],        # Cobre, Alumínio
     "SHFE":       ["CU", "AL", "HC"],  # Cobre, Alumínio, HRC
     "BMFBOVESPA": ["DI1"],             # DI Futuro (juros Brasil)
+    "NYMEX":      ["HO"]
 }
 
 COLUMNS = ["DATA_REF", "ATIVO_ID", "EXCHANGE", "CONTRATO", "VENCIMENTO", "PRECO", "CURRENCY", "IS_SPOT"]
@@ -27,6 +28,7 @@ CURVE_SHEETS = {
     "LME-AH":         "Curva_LME_Al",
     "SHFE-HC":        "Curva_SHFE_HRC",
     "BMFBOVESPA-DI1": "Curva_DI1",
+    "NYMEX-HO":       "Curva_HO"
 }
 
 
